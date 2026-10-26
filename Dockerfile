@@ -1,4 +1,4 @@
-FROM node:20-slim AS base
+FROM node:24-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 # Run pnpm non-interactively: without a TTY, pnpm 10 otherwise aborts when it
@@ -16,7 +16,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-l
 # emulation (fatal error: lfstack.push) when cross-building. The output is plain,
 # architecture-independent JavaScript, so it is safe to copy into a target-arch
 # final image below.
-FROM --platform=$BUILDPLATFORM node:20-slim AS build
+FROM --platform=$BUILDPLATFORM node:24-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV CI=true

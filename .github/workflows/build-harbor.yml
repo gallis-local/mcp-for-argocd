@@ -1,0 +1,59 @@
+name: Build & push to Harbor
+
+# gallis-local fork: upstream v0.9.0 + argoproj-labs/mcp-for-argocd#163 (node:24-slim),
+# pinned by digest. Mirrors gallis-local/Cellarion build-harbor.yml (Vault JWT -> Harbor).
+on:
+  push:
+    tags: ["v*-gallis.*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: core.harbor.e.gallis.cloud
+  IMAGE_NAME: gallis/mcp-for-argocd
+
+jobs:
+  build:
+    runs-on: [self-hosted, x64]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup HashiCorp Vault
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+        with:
+          url: ${{ vars.VAULT_ADDR }}
+          method: jwt
+          role: github-actions-role
+          path: github-actions
+          exportToken: false
+          secrets: |
+            prod-kubernetes/data/github/harbor/harbor-arm harbor-github-password | HARBOR_PASSWORD ;
+            prod-kubernetes/data/github/harbor/harbor-arm harbor-github-username | HARBOR_USERNAME ;
+
+      - name: Login to Harbor Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.HARBOR_USERNAME }}
+          password: ${{ env.HARBOR_PASSWORD }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+        with:
+          driver-opts: network=host
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          provenance: false
+
+      - name: Report digest and Node version
+        run: |
+          echo "digest=${{ steps.push.outputs.digest }}"
+          docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:${{ github.ref_name }}" --format '{{json .Image}}' | grep -o '"NODE_VERSION=[^"]*"' | head -1
