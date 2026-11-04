@@ -23,6 +23,12 @@ jobs:
       attestations: write
       id-token: write
 
+    env:
+      # build-push-action uploads a `*.dockerbuild` build record as a workflow artifact
+      # after every build. Nothing reads them and they fill the org's Actions artifact
+      # storage, so they are not uploaded.
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
